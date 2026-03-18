@@ -241,11 +241,20 @@ textarea,
 .viewport-shell {
   display: block;
   background: #ffffff;
+  cursor: grab;
 }
 
 .viewport {
   display: block;
   touch-action: none;
+}
+
+.viewport-shell.pan-shortcut-active {
+  cursor: grab;
+}
+
+.viewport-shell.is-panning {
+  cursor: grabbing;
 }
 
 .slide-panel {
