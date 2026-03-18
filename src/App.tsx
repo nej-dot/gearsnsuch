@@ -115,6 +115,8 @@ const App = () => {
   const [selectedPartId, setSelectedPartId] = useState<string | null>("gear-driver");
   const [jsonText, setJsonText] = useState("");
   const [jsonError, setJsonError] = useState<string | null>(null);
+  const [leftRailOpen, setLeftRailOpen] = useState(false);
+  const [rightRailOpen, setRightRailOpen] = useState(false);
   const playback = usePlayback();
 
   const frame = useMemo(
@@ -174,159 +176,203 @@ const App = () => {
     });
     setSelectedPartId(part.id);
     playback.setIsPlaying(false);
+    setRightRailOpen(true);
+  };
+
+  const handleSelectPart = (partId: string | null) => {
+    setSelectedPartId(partId);
+
+    if (partId) {
+      setRightRailOpen(true);
+    }
   };
 
   return (
     <div className="app-shell">
-      <div className="sheet-frame">
-        <span className="sheet-mark sheet-mark-top" aria-hidden="true" />
-        <span className="sheet-mark sheet-mark-right" aria-hidden="true" />
-        <span className="sheet-mark sheet-mark-bottom" aria-hidden="true" />
-        <span className="sheet-mark sheet-mark-left" aria-hidden="true" />
-
-        <header className="sheet-header">
-          <div className="sheet-heading">
-            <div className="sheet-title-block">
-              <p className="eyebrow">Technical reference / interactive assembly study</p>
-              <h1>Gears n Such</h1>
-              <p className="hero-copy">{document.metadata.description}</p>
-            </div>
-
-            <div className="control-block">
-              <div className="toolbar">
-                <button onClick={() => playback.setIsPlaying(!playback.isPlaying)}>
-                  {playback.isPlaying ? "Pause cycle" : "Run cycle"}
-                </button>
-                <button
-                  className="secondary"
-                  onClick={() => {
-                    playback.reset();
-                    playback.setIsPlaying(false);
-                  }}
-                >
-                  Zero time
-                </button>
-                <button
-                  className="secondary"
-                  onClick={() => {
-                    setDocument(createDemoMechanism());
-                    setSelectedPartId("gear-driver");
-                    playback.reset();
-                  }}
-                >
-                  Reload study
-                </button>
-              </div>
-
-              <label className="range-row">
-                <span>Playback speed</span>
-                <input
-                  type="range"
-                  min="0.1"
-                  max="3"
-                  step="0.1"
-                  value={playback.speed}
-                  onChange={(event) => playback.setSpeed(numberValue(event.target.value))}
-                />
-                <strong>{formatNumber(playback.speed)}x</strong>
-              </label>
-            </div>
+      <div className="canvas-shell">
+        <div className="canvas-overlay canvas-overlay-left">
+          <div className="floating-chip floating-chip-brand">
+            <p className="eyebrow">Interactive assembly study</p>
+            <h1>Gears n Such</h1>
+            <p className="hero-copy">{document.metadata.name}</p>
           </div>
+        </div>
 
-          <div className="status-strip">
-            <div className="status-chip">
-              <span>Status</span>
-              <strong>{sheetStatus}</strong>
-            </div>
-            <div className="status-chip">
-              <span>Assembly count</span>
-              <strong>{document.parts.length} parts</strong>
-            </div>
-            <div className="status-chip">
-              <span>Constraint graph</span>
-              <strong>{document.connections.length} links</strong>
-            </div>
-            <div className="status-chip">
-              <span>Motion pass</span>
-              <strong>{Object.keys(frame.channels).length} channels</strong>
-            </div>
-            <div className="status-chip">
-              <span>Selection</span>
-              <strong>{selectedPart ? selectedPart.label : "No part selected"}</strong>
-            </div>
-          </div>
-        </header>
-
-        <div className="sheet-body">
-          <aside className="sheet-rail">
-            <section className="panel">
-              <div className="panel-head">
-                <h2>Part Library</h2>
-                <span>Add geometry</span>
-              </div>
-              <p className="panel-copy">
-                New parts land near the drawing field center. Pause the cycle before repositioning.
-              </p>
-              <div className="tool-grid">
-                {(["gear", "rack", "pivot", "crank", "slider", "rod"] as PartKind[]).map(
-                  (kind) => (
-                    <button key={kind} className="tool-button" onClick={() => addPart(kind)}>
-                      {kind}
-                    </button>
-                  ),
-                )}
-              </div>
-            </section>
-
-            <section className="panel">
-              <div className="panel-head">
-                <h2>Part Register</h2>
-                <span>{document.parts.length}</span>
-              </div>
-              <div className="part-list">
-                {document.parts.map((part) => (
-                  <button
-                    key={part.id}
-                    className={`part-pill ${part.id === selectedPartId ? "active" : ""}`}
-                    onClick={() => setSelectedPartId(part.id)}
-                  >
-                    <span>{part.label}</span>
-                    <small>{part.type}</small>
-                  </button>
-                ))}
-              </div>
-            </section>
-          </aside>
-
-          <main className="main-stage">
-            <MechanismViewport
-              document={document}
-              frame={frame}
-              selectedPartId={selectedPartId}
-              isPaused={!playback.isPlaying}
-              onSelectPart={setSelectedPartId}
-              onMovePart={(partId, x, y) => {
-                setDocument(
-                  updatePart(document, partId, (part) => ({
-                    ...part,
-                    frame: {
-                      ...part.frame,
-                      position: { x, y },
-                    },
-                  })),
-                );
+        <div className="canvas-overlay canvas-overlay-right">
+          <div className="toolbar overlay-toolbar">
+            <button className="secondary" onClick={() => setLeftRailOpen(!leftRailOpen)}>
+              {leftRailOpen ? "Hide library" : "Library"}
+            </button>
+            <button className="secondary" onClick={() => setRightRailOpen(!rightRailOpen)}>
+              {rightRailOpen ? "Hide inspector" : "Inspector"}
+            </button>
+            <button onClick={() => playback.setIsPlaying(!playback.isPlaying)}>
+              {playback.isPlaying ? "Pause cycle" : "Run cycle"}
+            </button>
+            <button
+              className="secondary"
+              onClick={() => {
+                playback.reset();
+                playback.setIsPlaying(false);
               }}
-            />
-          </main>
+            >
+              Zero time
+            </button>
+            <button
+              className="secondary"
+              onClick={() => {
+                setDocument(createDemoMechanism());
+                setSelectedPartId("gear-driver");
+                playback.reset();
+              }}
+            >
+              Reload study
+            </button>
+          </div>
+        </div>
 
-          <aside className="sheet-rail sheet-rail-right">
-            <section className="panel">
-              <div className="panel-head">
-                <h2>Selected Spec</h2>
-                {selectedPart ? <span>{selectedPart.type}</span> : <span>Awaiting target</span>}
+        <div className="canvas-overlay canvas-overlay-bottom">
+          <div className="floating-chip floating-chip-status">
+            <span>Status {sheetStatus}</span>
+            <span>Time {formatNumber(frame.time)} s</span>
+            <span>Parts {document.parts.length}</span>
+            <span>Diagnostics {frame.diagnostics.length}</span>
+          </div>
+        </div>
+
+        <button
+          className={`drawer-handle drawer-handle-left ${leftRailOpen ? "open" : ""}`}
+          onClick={() => setLeftRailOpen(!leftRailOpen)}
+        >
+          {leftRailOpen ? "Close library" : "Open library"}
+        </button>
+
+        <button
+          className={`drawer-handle drawer-handle-right ${rightRailOpen ? "open" : ""}`}
+          onClick={() => setRightRailOpen(!rightRailOpen)}
+        >
+          {rightRailOpen ? "Close inspector" : "Open inspector"}
+        </button>
+
+        <main className="main-stage">
+          <MechanismViewport
+            document={document}
+            frame={frame}
+            selectedPartId={selectedPartId}
+            isPaused={!playback.isPlaying}
+            onSelectPart={handleSelectPart}
+            onMovePart={(partId, x, y) => {
+              setDocument(
+                updatePart(document, partId, (part) => ({
+                  ...part,
+                  frame: {
+                    ...part.frame,
+                    position: { x, y },
+                  },
+                })),
+              );
+            }}
+          />
+        </main>
+
+        <aside className={`slide-panel slide-panel-left ${leftRailOpen ? "open" : ""}`}>
+          <div className="slide-panel-header">
+            <div>
+              <p className="eyebrow">Library</p>
+              <h2>Part Library</h2>
+            </div>
+            <button className="secondary" onClick={() => setLeftRailOpen(false)}>
+              Close
+            </button>
+          </div>
+
+          <section className="panel">
+            <div className="panel-head">
+              <h2>New Geometry</h2>
+              <span>Add parts</span>
+            </div>
+            <p className="panel-copy">
+              Pause the cycle before repositioning. New parts land near the center of the canvas.
+            </p>
+            <div className="tool-grid">
+              {(["gear", "rack", "pivot", "crank", "slider", "rod"] as PartKind[]).map((kind) => (
+                <button key={kind} className="tool-button" onClick={() => addPart(kind)}>
+                  {kind}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="panel">
+            <div className="panel-head">
+              <h2>Part Register</h2>
+              <span>{document.parts.length}</span>
+            </div>
+            <div className="part-list">
+              {document.parts.map((part) => (
+                <button
+                  key={part.id}
+                  className={`part-pill ${part.id === selectedPartId ? "active" : ""}`}
+                  onClick={() => {
+                    handleSelectPart(part.id);
+                    setLeftRailOpen(false);
+                  }}
+                >
+                  <span>{part.label}</span>
+                  <small>{part.type}</small>
+                </button>
+              ))}
+            </div>
+          </section>
+        </aside>
+
+        <aside className={`slide-panel slide-panel-right ${rightRailOpen ? "open" : ""}`}>
+          <div className="slide-panel-header">
+            <div>
+              <p className="eyebrow">Inspector</p>
+              <h2>Selected Spec</h2>
+            </div>
+            <button className="secondary" onClick={() => setRightRailOpen(false)}>
+              Close
+            </button>
+          </div>
+
+          <section className="panel">
+            <div className="panel-head">
+              <h2>Session</h2>
+              <span>{sheetStatus}</span>
+            </div>
+            <label className="range-row">
+              <span>Playback speed</span>
+              <input
+                type="range"
+                min="0.1"
+                max="3"
+                step="0.1"
+                value={playback.speed}
+                onChange={(event) => playback.setSpeed(numberValue(event.target.value))}
+              />
+              <strong>{formatNumber(playback.speed)}x</strong>
+            </label>
+            <div className="panel-stat-grid">
+              <div className="stat-row inspector-stat">
+                <span>Issued</span>
+                <strong>{issuedDate}</strong>
               </div>
-              {selectedPart ? (
-                <div className="inspector-grid">
+              <div className="stat-row inspector-stat">
+                <span>Motion</span>
+                <strong>{Object.keys(frame.channels).length} channels</strong>
+              </div>
+            </div>
+          </section>
+
+          <section className="panel">
+            <div className="panel-head">
+              <h2>Selected Spec</h2>
+              {selectedPart ? <span>{selectedPart.type}</span> : <span>Awaiting target</span>}
+            </div>
+            {selectedPart ? (
+              <div className="inspector-grid">
                   <label className="field-span-2">
                     <span>Label</span>
                     <input
@@ -606,115 +652,87 @@ const App = () => {
                       />
                     </label>
                   ) : null}
-                </div>
-              ) : (
-                <p className="empty-copy">Select a part to expose its editable dimensions and notes.</p>
-              )}
-            </section>
-
-            <section className="panel">
-              <div className="panel-head">
-                <h2>Drive Inputs</h2>
-                <span>{enabledDriverCount} active</span>
               </div>
-              <div className="driver-list">
-                {document.drivers.map((driver) => (
-                  <label key={driver.id}>
-                    <span>{driver.label}</span>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={driver.value}
-                      onChange={(event) =>
-                        setDocument({
-                          ...document,
-                          drivers: document.drivers.map((entry) =>
-                            entry.id !== driver.id
-                              ? entry
-                              : {
-                                  ...entry,
-                                  value: numberValue(event.target.value),
-                                },
-                          ),
-                        })
-                      }
-                    />
-                  </label>
+            ) : (
+              <p className="empty-copy">Select a part to expose its editable dimensions and notes.</p>
+            )}
+          </section>
+
+          <section className="panel">
+            <div className="panel-head">
+              <h2>Drive Inputs</h2>
+              <span>{enabledDriverCount} active</span>
+            </div>
+            <div className="driver-list">
+              {document.drivers.map((driver) => (
+                <label key={driver.id}>
+                  <span>{driver.label}</span>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={driver.value}
+                    onChange={(event) =>
+                      setDocument({
+                        ...document,
+                        drivers: document.drivers.map((entry) =>
+                          entry.id !== driver.id
+                            ? entry
+                            : {
+                                ...entry,
+                                value: numberValue(event.target.value),
+                              },
+                        ),
+                      })
+                    }
+                  />
+                </label>
+              ))}
+            </div>
+          </section>
+
+          <section className="panel">
+            <div className="panel-head">
+              <h2>Integrity Notes</h2>
+              <span>{frame.diagnostics.length}</span>
+            </div>
+            {frame.diagnostics.length === 0 ? (
+              <p className="empty-copy">No contradictions detected in the current kinematic graph.</p>
+            ) : (
+              <div className="diagnostic-list">
+                {frame.diagnostics.map((diagnostic, index) => (
+                  <div
+                    key={`${diagnostic.message}-${index}`}
+                    className={`diagnostic ${diagnostic.severity}`}
+                  >
+                    <strong>{diagnostic.severity}</strong>
+                    <p>{diagnostic.message}</p>
+                  </div>
                 ))}
               </div>
-            </section>
+            )}
+          </section>
 
-            <section className="panel">
-              <div className="panel-head">
-                <h2>Integrity Notes</h2>
-                <span>{frame.diagnostics.length}</span>
-              </div>
-              {frame.diagnostics.length === 0 ? (
-                <p className="empty-copy">No contradictions detected in the current kinematic graph.</p>
-              ) : (
-                <div className="diagnostic-list">
-                  {frame.diagnostics.map((diagnostic, index) => (
-                    <div
-                      key={`${diagnostic.message}-${index}`}
-                      className={`diagnostic ${diagnostic.severity}`}
-                    >
-                      <strong>{diagnostic.severity}</strong>
-                      <p>{diagnostic.message}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            <section className="panel">
-              <div className="panel-head">
-                <h2>Data Exchange</h2>
-                <span>JSON</span>
-              </div>
-              <div className="toolbar">
-                <button className="secondary" onClick={exportJson}>
-                  Export
-                </button>
-                <button className="secondary" onClick={importJson}>
-                  Import
-                </button>
-              </div>
-              <textarea
-                value={jsonText}
-                onChange={(event) => setJsonText(event.target.value)}
-                placeholder="Exported JSON appears here, or paste a document to import."
-              />
-              {jsonError ? <p className="error-copy">{jsonError}</p> : null}
-            </section>
-          </aside>
-        </div>
-
-        <footer className="title-block">
-          <div className="title-cell">
-            <span>Document type</span>
-            <strong>Interactive mechanism study</strong>
-          </div>
-          <div className="title-cell">
-            <span>Assembly title</span>
-            <strong>{document.metadata.name}</strong>
-          </div>
-          <div className="title-cell">
-            <span>Selected element</span>
-            <strong>{selectedPart ? `${selectedPart.label} / ${selectedPart.type}` : "No active selection"}</strong>
-          </div>
-          <div className="title-cell">
-            <span>Issued</span>
-            <strong>{issuedDate}</strong>
-          </div>
-          <div className="title-cell">
-            <span>Drawing state</span>
-            <strong>{sheetStatus}</strong>
-          </div>
-          <div className="title-cell">
-            <span>Sheet</span>
-            <strong>1 / 1</strong>
-          </div>
-        </footer>
+          <section className="panel">
+            <div className="panel-head">
+              <h2>Data Exchange</h2>
+              <span>JSON</span>
+            </div>
+            <div className="toolbar">
+              <button className="secondary" onClick={exportJson}>
+                Export
+              </button>
+              <button className="secondary" onClick={importJson}>
+                Import
+              </button>
+            </div>
+            <textarea
+              value={jsonText}
+              onChange={(event) => setJsonText(event.target.value)}
+              placeholder="Exported JSON appears here, or paste a document to import."
+            />
+            {jsonError ? <p className="error-copy">{jsonError}</p> : null}
+          </section>
+        </aside>
       </div>
     </div>
   );

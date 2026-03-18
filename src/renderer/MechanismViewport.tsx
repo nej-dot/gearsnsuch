@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { angleOf, formatNumber, normalize, radiansToDegrees, scale, sub } from "../domain/geometry";
+import { angleOf, normalize, radiansToDegrees, scale, sub } from "../domain/geometry";
 import {
   buildInvoluteGearPath,
   buildRackPath,
@@ -34,10 +34,10 @@ interface DragState {
 const canDragPart = (part: MechanismPart): boolean => part.type !== "rod";
 const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
 
-const partStroke = (part: MechanismPart): string => part.style?.stroke ?? "#171612";
-const selectedStroke = "#a33b4b";
-const constructionStroke = "#b5b0a4";
-const centerlineStroke = "#7f7a70";
+const partStroke = (part: MechanismPart): string => part.style?.stroke ?? "#111111";
+const selectedStroke = "#111111";
+const constructionStroke = "#d8d8d8";
+const centerlineStroke = "#bfbfbf";
 
 const GearShape = ({
   part,
@@ -57,13 +57,13 @@ const GearShape = ({
     >
       <path
         d={gearPath}
-        fill="url(#solidHatch)"
+        fill="#ffffff"
         stroke={selected ? selectedStroke : partStroke(part)}
         strokeWidth={selected ? 3 : 2.2}
       />
       <circle r={geometry.pitchRadius} fill="none" stroke={centerlineStroke} strokeWidth={1} strokeDasharray="8 6" />
       <circle r={geometry.baseRadius} fill="none" stroke={constructionStroke} strokeWidth={0.9} strokeDasharray="5 5" opacity={0.7} />
-      <circle r={geometry.boreRadius} fill="#fcfbf5" stroke={partStroke(part)} strokeWidth={1.8} />
+      <circle r={geometry.boreRadius} fill="#ffffff" stroke={partStroke(part)} strokeWidth={1.8} />
       <line
         x1={-geometry.outerRadius - 10}
         y1={0}
@@ -108,7 +108,7 @@ const RackShape = ({
     <g transform={`translate(${pose.position.x} ${pose.position.y}) rotate(${axisAngle})`}>
       <path
         d={rackPath}
-        fill="url(#solidHatch)"
+        fill="#ffffff"
         stroke={selected ? selectedStroke : partStroke(part)}
         strokeWidth={selected ? 3 : 2.2}
       />
@@ -144,7 +144,7 @@ const CrankShape = ({
         cx={pivot.x}
         cy={pivot.y}
         r={11}
-        fill="#fcfbf5"
+        fill="#ffffff"
         stroke={selected ? selectedStroke : partStroke(part)}
         strokeWidth={selected ? 3 : 2.2}
       />
@@ -157,7 +157,7 @@ const CrankShape = ({
         strokeWidth={9}
         strokeLinecap="round"
       />
-      <circle cx={pin.x} cy={pin.y} r={10} fill="#fcfbf5" stroke={partStroke(part)} strokeWidth={2} />
+      <circle cx={pin.x} cy={pin.y} r={10} fill="#ffffff" stroke={partStroke(part)} strokeWidth={2} />
       <line
         x1={pivot.x - 16}
         y1={pivot.y}
@@ -206,7 +206,7 @@ const SliderShape = ({
           width={part.params.width}
           height={part.params.height}
           rx={12}
-          fill="url(#solidHatch)"
+          fill="#ffffff"
           stroke={selected ? selectedStroke : partStroke(part)}
           strokeWidth={selected ? 3 : 2.2}
         />
@@ -244,7 +244,7 @@ const RodShape = ({
         y1={a.y}
         x2={b.x}
         y2={b.y}
-        stroke="#fcfbf5"
+        stroke="#ffffff"
         strokeWidth={Math.max(2, part.params.thickness - 6)}
         strokeLinecap="round"
       />
@@ -257,8 +257,8 @@ const RodShape = ({
         strokeDasharray="8 6"
         strokeWidth={1}
       />
-      <circle cx={a.x} cy={a.y} r={8} fill="#fcfbf5" stroke={partStroke(part)} strokeWidth={2} />
-      <circle cx={b.x} cy={b.y} r={8} fill="#fcfbf5" stroke={partStroke(part)} strokeWidth={2} />
+      <circle cx={a.x} cy={a.y} r={8} fill="#ffffff" stroke={partStroke(part)} strokeWidth={2} />
+      <circle cx={b.x} cy={b.y} r={8} fill="#ffffff" stroke={partStroke(part)} strokeWidth={2} />
     </g>
   );
 };
@@ -278,7 +278,7 @@ const PivotShape = ({
     <g transform={`translate(${pose.position.x} ${pose.position.y})`}>
       <circle
         r={part.params.displayRadius}
-        fill="url(#solidHatch)"
+        fill="#ffffff"
         stroke={selected ? selectedStroke : partStroke(part)}
         strokeWidth={selected ? 3 : 2.2}
       />
@@ -410,75 +410,7 @@ export const MechanismViewport = ({
         onPointerLeave={() => setDragState(null)}
         onPointerDown={() => onSelectPart(null)}
       >
-        <rect x={0} y={0} width={document.view.width} height={document.view.height} fill="url(#paperFill)" />
-        <defs>
-          <linearGradient id="paperFill" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#fdfbf5" />
-            <stop offset="100%" stopColor="#f2eee2" />
-          </linearGradient>
-          <pattern
-            id="solidHatch"
-            patternUnits="userSpaceOnUse"
-            width="12"
-            height="12"
-            patternTransform="rotate(45)"
-          >
-            <rect width="12" height="12" fill="#fdfbf5" />
-            <line x1="0" y1="0" x2="0" y2="12" stroke="#d5d0c5" strokeWidth="1.5" />
-          </pattern>
-        </defs>
-        <rect
-          x={26}
-          y={26}
-          width={document.view.width - 52}
-          height={document.view.height - 52}
-          fill="none"
-          stroke="#201d18"
-          strokeWidth={1.2}
-          opacity={0.9}
-        />
-        <rect
-          x={46}
-          y={46}
-          width={document.view.width - 92}
-          height={document.view.height - 92}
-          fill="none"
-          stroke="#7f7a70"
-          strokeWidth={0.8}
-          opacity={0.45}
-        />
-        <line
-          x1={document.view.width / 2}
-          y1={18}
-          x2={document.view.width / 2}
-          y2={56}
-          stroke="#201d18"
-          strokeWidth={1}
-        />
-        <line
-          x1={document.view.width / 2}
-          y1={document.view.height - 18}
-          x2={document.view.width / 2}
-          y2={document.view.height - 56}
-          stroke="#201d18"
-          strokeWidth={1}
-        />
-        <line
-          x1={18}
-          y1={document.view.height / 2}
-          x2={56}
-          y2={document.view.height / 2}
-          stroke="#201d18"
-          strokeWidth={1}
-        />
-        <line
-          x1={document.view.width - 18}
-          y1={document.view.height / 2}
-          x2={document.view.width - 56}
-          y2={document.view.height / 2}
-          stroke="#201d18"
-          strokeWidth={1}
-        />
+        <rect x={0} y={0} width={document.view.width} height={document.view.height} fill="#ffffff" />
         {gridLines.vertical.map((x) => (
           <line
             key={`v-${x}`}
@@ -486,8 +418,8 @@ export const MechanismViewport = ({
             y1={0}
             x2={x}
             y2={document.view.height}
-            stroke="#3e3a33"
-            strokeOpacity={x % (document.view.grid * 5) === 0 ? 0.12 : 0.05}
+            stroke="#000000"
+            strokeOpacity={x % (document.view.grid * 5) === 0 ? 0.1 : 0.04}
             strokeWidth={1}
           />
         ))}
@@ -498,8 +430,8 @@ export const MechanismViewport = ({
             y1={y}
             x2={document.view.width}
             y2={y}
-            stroke="#3e3a33"
-            strokeOpacity={y % (document.view.grid * 5) === 0 ? 0.12 : 0.05}
+            stroke="#000000"
+            strokeOpacity={y % (document.view.grid * 5) === 0 ? 0.1 : 0.04}
             strokeWidth={1}
           />
         ))}
@@ -528,24 +460,24 @@ export const MechanismViewport = ({
               cx={selectedPose.position.x}
               cy={selectedPose.position.y}
               r={5}
-              fill="#fdfbf5"
+              fill="#ffffff"
               stroke={selectedStroke}
               strokeWidth={1.4}
             />
             <line
               x1={selectedPose.position.x}
-              y1={46}
+              y1={0}
               x2={selectedPose.position.x}
-              y2={document.view.height - 46}
+              y2={document.view.height}
               stroke={centerlineStroke}
               strokeDasharray="7 7"
               strokeWidth={0.9}
               opacity={0.45}
             />
             <line
-              x1={46}
+              x1={0}
               y1={selectedPose.position.y}
-              x2={document.view.width - 46}
+              x2={document.view.width}
               y2={selectedPose.position.y}
               stroke={centerlineStroke}
               strokeDasharray="7 7"
@@ -557,7 +489,7 @@ export const MechanismViewport = ({
               y={calloutY}
               width={234}
               height={76}
-              fill="#fdfbf5"
+              fill="#ffffff"
               stroke={selectedStroke}
               strokeWidth={1.2}
             />
@@ -584,7 +516,7 @@ export const MechanismViewport = ({
             <text
               x={calloutX + 14}
               y={calloutY + 61}
-              fill="#544f46"
+              fill="#6a6a6a"
               fontFamily="Consolas, monospace"
               fontSize="10"
               letterSpacing="1.1"
@@ -595,21 +527,6 @@ export const MechanismViewport = ({
           </g>
         ) : null}
       </svg>
-
-      <div className="viewport-caption">
-        <span>
-          Sheet title <strong>{document.metadata.name}</strong>
-        </span>
-        <span>
-          Timebase <strong>{formatNumber(frame.time)} s</strong>
-        </span>
-        <span>
-          Motion state <strong>{isPaused ? "Paused for edits" : "Running"}</strong>
-        </span>
-        <span>
-          Diagnostics <strong>{frame.diagnostics.length}</strong>
-        </span>
-      </div>
     </div>
   );
 };
