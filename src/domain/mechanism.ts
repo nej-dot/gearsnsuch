@@ -45,6 +45,8 @@ export interface RackPart
       height: number;
       axis: Vec2;
       toothPitch: number;
+      module?: number;
+      pressureAngleDeg?: number;
     }
   > {}
 

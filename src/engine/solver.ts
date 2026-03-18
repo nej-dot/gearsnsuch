@@ -12,7 +12,7 @@ import {
   sub,
   vec,
 } from "../domain/geometry";
-import { deriveGearGeometry } from "../domain/gears";
+import { deriveGearGeometry, deriveRackGeometry } from "../domain/gears";
 import type {
   CrankPart,
   CrankSliderConnection,
@@ -136,12 +136,23 @@ const validateConnections = (
       }
 
       const gearGeometry = deriveGearGeometry(pinion.params);
+      const rackGeometry = deriveRackGeometry(rack.params);
 
       if (Math.abs(rack.params.toothPitch - gearGeometry.circularPitch) > gearGeometry.module * 0.4) {
         pushDiagnostic(diagnostics, {
           severity: "warning",
           message:
             "Rack tooth pitch does not match the pinion circular pitch, so the fake mesh will drift visually.",
+          connectionId: connection.id,
+          partIds: [pinion.id, rack.id],
+        });
+      }
+
+      if (Math.abs(rackGeometry.pressureAngleDeg - gearGeometry.pressureAngleDeg) > 0.1) {
+        pushDiagnostic(diagnostics, {
+          severity: "warning",
+          message:
+            "Rack and pinion should share the same pressure angle for a believable tooth form.",
           connectionId: connection.id,
           partIds: [pinion.id, rack.id],
         });

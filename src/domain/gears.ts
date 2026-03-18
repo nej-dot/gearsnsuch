@@ -1,5 +1,5 @@
 import { vec, type Vec2 } from "./geometry";
-import type { GearPart, MechanismDocument } from "./mechanism";
+import type { GearPart, MechanismDocument, RackPart } from "./mechanism";
 
 export interface DerivedGearGeometry {
   teeth: number;
@@ -14,6 +14,17 @@ export interface DerivedGearGeometry {
   circularPitch: number;
   toothAngle: number;
   halfToothAngle: number;
+}
+
+export interface DerivedRackGeometry {
+  module: number;
+  pressureAngleDeg: number;
+  pressureAngleRad: number;
+  toothPitch: number;
+  addendum: number;
+  dedendum: number;
+  toothTopWidth: number;
+  toothRootWidth: number;
 }
 
 const DEFAULT_MODULE = 4;
@@ -85,6 +96,35 @@ export const deriveGearGeometry = (params: GearPart["params"]): DerivedGearGeome
     circularPitch,
     toothAngle,
     halfToothAngle,
+  };
+};
+
+export const deriveRackGeometry = (params: RackPart["params"]): DerivedRackGeometry => {
+  const module =
+    params.module && params.module > 0
+      ? params.module
+      : params.toothPitch > 0
+        ? params.toothPitch / Math.PI
+        : DEFAULT_MODULE;
+  const pressureAngleDeg = params.pressureAngleDeg ?? DEFAULT_PRESSURE_ANGLE_DEG;
+  const pressureAngleRad = (pressureAngleDeg * Math.PI) / 180;
+  const toothPitch = params.toothPitch > 0 ? params.toothPitch : Math.PI * module;
+  const addendum = module;
+  const dedendum = 1.25 * module;
+  const heightDelta = addendum + dedendum;
+  const flankOffset = heightDelta * Math.tan(pressureAngleRad);
+  const toothTopWidth = Math.max(module * 0.45, toothPitch / 2 - flankOffset);
+  const toothRootWidth = toothTopWidth + flankOffset * 2;
+
+  return {
+    module,
+    pressureAngleDeg,
+    pressureAngleRad,
+    toothPitch,
+    addendum,
+    dedendum,
+    toothTopWidth,
+    toothRootWidth,
   };
 };
 
@@ -212,4 +252,41 @@ export const computeVisualGearPhases = (
   });
 
   return Object.fromEntries(phases.entries());
+};
+
+export const buildRackPath = (
+  rack: RackPart["params"],
+  geometry: DerivedRackGeometry,
+): string => {
+  const halfLength = rack.length / 2;
+  const halfHeight = rack.height / 2;
+  const pitchY = -halfHeight + geometry.dedendum;
+  const tipY = pitchY - geometry.addendum;
+  const baseY = halfHeight;
+  const toothCount = Math.max(1, Math.ceil(rack.length / geometry.toothPitch) + 2);
+  const firstCenter = -halfLength - geometry.toothPitch;
+  const commands: string[] = [`M ${(-halfLength).toFixed(2)} ${baseY.toFixed(2)}`];
+
+  for (let index = 0; index < toothCount; index += 1) {
+    const center = firstCenter + index * geometry.toothPitch;
+    const leftRoot = center - geometry.toothRootWidth / 2;
+    const leftTip = center - geometry.toothTopWidth / 2;
+    const rightTip = center + geometry.toothTopWidth / 2;
+    const rightRoot = center + geometry.toothRootWidth / 2;
+
+    if (rightRoot < -halfLength || leftRoot > halfLength) {
+      continue;
+    }
+
+    commands.push(`L ${leftRoot.toFixed(2)} ${pitchY.toFixed(2)}`);
+    commands.push(`L ${leftTip.toFixed(2)} ${tipY.toFixed(2)}`);
+    commands.push(`L ${rightTip.toFixed(2)} ${tipY.toFixed(2)}`);
+    commands.push(`L ${rightRoot.toFixed(2)} ${pitchY.toFixed(2)}`);
+  }
+
+  commands.push(`L ${halfLength.toFixed(2)} ${baseY.toFixed(2)}`);
+  commands.push(`L ${halfLength.toFixed(2)} ${baseY.toFixed(2)}`);
+  commands.push(`L ${(-halfLength).toFixed(2)} ${baseY.toFixed(2)} Z`);
+
+  return commands.join(" ");
 };

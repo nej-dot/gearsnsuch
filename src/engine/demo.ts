@@ -29,7 +29,7 @@ export const createDemoMechanism = (): MechanismDocument => ({
         boreRadius: 10,
       },
       style: {
-        stroke: "#28495e",
+        stroke: "#171612",
       },
     },
     {
@@ -47,7 +47,7 @@ export const createDemoMechanism = (): MechanismDocument => ({
         boreRadius: 12,
       },
       style: {
-        stroke: "#28495e",
+        stroke: "#171612",
       },
     },
     {
@@ -63,9 +63,11 @@ export const createDemoMechanism = (): MechanismDocument => ({
         height: 30,
         axis: vec(1, 0),
         toothPitch: Math.PI * 4.43,
+        module: 4.43,
+        pressureAngleDeg: 20,
       },
       style: {
-        stroke: "#28495e",
+        stroke: "#171612",
       },
     },
     {
@@ -80,7 +82,7 @@ export const createDemoMechanism = (): MechanismDocument => ({
         radius: 72,
       },
       style: {
-        stroke: "#28495e",
+        stroke: "#171612",
       },
     },
     {
@@ -96,7 +98,7 @@ export const createDemoMechanism = (): MechanismDocument => ({
         thickness: 18,
       },
       style: {
-        stroke: "#28495e",
+        stroke: "#171612",
       },
     },
     {
@@ -115,7 +117,7 @@ export const createDemoMechanism = (): MechanismDocument => ({
         height: 44,
       },
       style: {
-        stroke: "#28495e",
+        stroke: "#171612",
       },
     },
     {
@@ -130,7 +132,7 @@ export const createDemoMechanism = (): MechanismDocument => ({
         displayRadius: 14,
       },
       style: {
-        stroke: "#28495e",
+        stroke: "#171612",
       },
     },
   ],

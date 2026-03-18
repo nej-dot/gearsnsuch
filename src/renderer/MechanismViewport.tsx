@@ -2,8 +2,10 @@ import { useMemo, useRef, useState } from "react";
 import { angleOf, formatNumber, normalize, radiansToDegrees, scale, sub } from "../domain/geometry";
 import {
   buildInvoluteGearPath,
+  buildRackPath,
   computeVisualGearPhases,
   deriveGearGeometry,
+  deriveRackGeometry,
 } from "../domain/gears";
 import type { MechanismDocument, MechanismPart, PartId, SimulationFrame } from "../domain/mechanism";
 
@@ -30,11 +32,12 @@ interface DragState {
 }
 
 const canDragPart = (part: MechanismPart): boolean => part.type !== "rod";
+const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
 
-const partStroke = (part: MechanismPart): string => part.style?.stroke ?? "#28495e";
-const selectedStroke = "#b54d34";
-const constructionStroke = "#90a8b7";
-const centerlineStroke = "#6f8b9e";
+const partStroke = (part: MechanismPart): string => part.style?.stroke ?? "#171612";
+const selectedStroke = "#a33b4b";
+const constructionStroke = "#b5b0a4";
+const centerlineStroke = "#7f7a70";
 
 const GearShape = ({
   part,
@@ -96,40 +99,24 @@ const RackShape = ({
 }) => {
   const pose = frame.poses[part.id];
   const halfLength = part.params.length / 2;
-  const halfHeight = part.params.height / 2;
-  const teeth = Math.max(6, Math.floor(part.params.length / part.params.toothPitch));
-  const step = part.params.length / teeth;
+  const rackGeometry = deriveRackGeometry(part.params);
+  const rackPath = buildRackPath(part.params, rackGeometry);
   const axisAngle = radiansToDegrees(angleOf(normalize(part.params.axis)));
+  const pitchY = -part.params.height / 2 + rackGeometry.dedendum;
 
   return (
     <g transform={`translate(${pose.position.x} ${pose.position.y}) rotate(${axisAngle})`}>
-      <rect
-        x={-halfLength}
-        y={-halfHeight}
-        width={part.params.length}
-        height={part.params.height}
-        rx={8}
+      <path
+        d={rackPath}
         fill="url(#solidHatch)"
         stroke={selected ? selectedStroke : partStroke(part)}
         strokeWidth={selected ? 3 : 2.2}
       />
-      {Array.from({ length: teeth + 1 }, (_, index) => -halfLength + index * step).map((x) => (
-        <line
-          key={x}
-          x1={x}
-          y1={-halfHeight}
-          x2={x + step * 0.5}
-          y2={-halfHeight - 8}
-          stroke={partStroke(part)}
-          strokeWidth={1.1}
-          opacity={0.9}
-        />
-      ))}
       <line
         x1={-halfLength}
-        y1={0}
+        y1={pitchY}
         x2={halfLength}
-        y2={0}
+        y2={pitchY}
         stroke={centerlineStroke}
         strokeDasharray="8 6"
         strokeWidth={1}
@@ -317,6 +304,8 @@ export const MechanismViewport = ({
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
   const gearPhases = useMemo(() => computeVisualGearPhases(document), [document]);
+  const selectedPart =
+    selectedPartId ? document.parts.find((part) => part.id === selectedPartId) ?? null : null;
 
   const gridLines = useMemo(() => {
     const vertical = Array.from(
@@ -330,6 +319,15 @@ export const MechanismViewport = ({
 
     return { vertical, horizontal };
   }, [document.view.grid, document.view.height, document.view.width]);
+  const selectedPose = selectedPart ? frame.poses[selectedPart.id] : null;
+  const calloutX = selectedPose
+    ? selectedPose.position.x < document.view.width * 0.56
+      ? document.view.width - 286
+      : 52
+    : 52;
+  const calloutY = selectedPose
+    ? clamp(selectedPose.position.y - 72, 64, document.view.height - 154)
+    : 64;
 
   const eventToPoint = (event: { clientX: number; clientY: number }) => {
     const bounds = svgRef.current?.getBoundingClientRect();
@@ -415,14 +413,72 @@ export const MechanismViewport = ({
         <rect x={0} y={0} width={document.view.width} height={document.view.height} fill="url(#paperFill)" />
         <defs>
           <linearGradient id="paperFill" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#fcfbf5" />
-            <stop offset="100%" stopColor="#f0eee4" />
+            <stop offset="0%" stopColor="#fdfbf5" />
+            <stop offset="100%" stopColor="#f2eee2" />
           </linearGradient>
-          <pattern id="solidHatch" patternUnits="userSpaceOnUse" width="10" height="10" patternTransform="rotate(45)">
-            <rect width="10" height="10" fill="#fcfbf5" />
-            <line x1="0" y1="0" x2="0" y2="10" stroke="#cdd6dc" strokeWidth="2" />
+          <pattern
+            id="solidHatch"
+            patternUnits="userSpaceOnUse"
+            width="12"
+            height="12"
+            patternTransform="rotate(45)"
+          >
+            <rect width="12" height="12" fill="#fdfbf5" />
+            <line x1="0" y1="0" x2="0" y2="12" stroke="#d5d0c5" strokeWidth="1.5" />
           </pattern>
         </defs>
+        <rect
+          x={26}
+          y={26}
+          width={document.view.width - 52}
+          height={document.view.height - 52}
+          fill="none"
+          stroke="#201d18"
+          strokeWidth={1.2}
+          opacity={0.9}
+        />
+        <rect
+          x={46}
+          y={46}
+          width={document.view.width - 92}
+          height={document.view.height - 92}
+          fill="none"
+          stroke="#7f7a70"
+          strokeWidth={0.8}
+          opacity={0.45}
+        />
+        <line
+          x1={document.view.width / 2}
+          y1={18}
+          x2={document.view.width / 2}
+          y2={56}
+          stroke="#201d18"
+          strokeWidth={1}
+        />
+        <line
+          x1={document.view.width / 2}
+          y1={document.view.height - 18}
+          x2={document.view.width / 2}
+          y2={document.view.height - 56}
+          stroke="#201d18"
+          strokeWidth={1}
+        />
+        <line
+          x1={18}
+          y1={document.view.height / 2}
+          x2={56}
+          y2={document.view.height / 2}
+          stroke="#201d18"
+          strokeWidth={1}
+        />
+        <line
+          x1={document.view.width - 18}
+          y1={document.view.height / 2}
+          x2={document.view.width - 56}
+          y2={document.view.height / 2}
+          stroke="#201d18"
+          strokeWidth={1}
+        />
         {gridLines.vertical.map((x) => (
           <line
             key={`v-${x}`}
@@ -430,8 +486,8 @@ export const MechanismViewport = ({
             y1={0}
             x2={x}
             y2={document.view.height}
-            stroke="#2f556d"
-            strokeOpacity={x % (document.view.grid * 5) === 0 ? 0.18 : 0.08}
+            stroke="#3e3a33"
+            strokeOpacity={x % (document.view.grid * 5) === 0 ? 0.12 : 0.05}
             strokeWidth={1}
           />
         ))}
@@ -442,8 +498,8 @@ export const MechanismViewport = ({
             y1={y}
             x2={document.view.width}
             y2={y}
-            stroke="#2f556d"
-            strokeOpacity={y % (document.view.grid * 5) === 0 ? 0.18 : 0.08}
+            stroke="#3e3a33"
+            strokeOpacity={y % (document.view.grid * 5) === 0 ? 0.12 : 0.05}
             strokeWidth={1}
           />
         ))}
@@ -458,12 +514,101 @@ export const MechanismViewport = ({
             {renderPart(part)}
           </g>
         ))}
+        {selectedPart && selectedPose ? (
+          <g pointerEvents="none">
+            <line
+              x1={selectedPose.position.x}
+              y1={selectedPose.position.y}
+              x2={calloutX + 18}
+              y2={calloutY + 30}
+              stroke={selectedStroke}
+              strokeWidth={1.2}
+            />
+            <circle
+              cx={selectedPose.position.x}
+              cy={selectedPose.position.y}
+              r={5}
+              fill="#fdfbf5"
+              stroke={selectedStroke}
+              strokeWidth={1.4}
+            />
+            <line
+              x1={selectedPose.position.x}
+              y1={46}
+              x2={selectedPose.position.x}
+              y2={document.view.height - 46}
+              stroke={centerlineStroke}
+              strokeDasharray="7 7"
+              strokeWidth={0.9}
+              opacity={0.45}
+            />
+            <line
+              x1={46}
+              y1={selectedPose.position.y}
+              x2={document.view.width - 46}
+              y2={selectedPose.position.y}
+              stroke={centerlineStroke}
+              strokeDasharray="7 7"
+              strokeWidth={0.9}
+              opacity={0.45}
+            />
+            <rect
+              x={calloutX}
+              y={calloutY}
+              width={234}
+              height={76}
+              fill="#fdfbf5"
+              stroke={selectedStroke}
+              strokeWidth={1.2}
+            />
+            <text
+              x={calloutX + 14}
+              y={calloutY + 22}
+              fill={selectedStroke}
+              fontFamily="Consolas, monospace"
+              fontSize="10"
+              letterSpacing="1.6"
+            >
+              ACTIVE CALLOUT
+            </text>
+            <text
+              x={calloutX + 14}
+              y={calloutY + 44}
+              fill="#171612"
+              fontFamily="Bahnschrift, Arial Narrow, sans-serif"
+              fontSize="18"
+              fontWeight="700"
+            >
+              {selectedPart.label}
+            </text>
+            <text
+              x={calloutX + 14}
+              y={calloutY + 61}
+              fill="#544f46"
+              fontFamily="Consolas, monospace"
+              fontSize="10"
+              letterSpacing="1.1"
+            >
+              {selectedPart.type.toUpperCase()} / X {Math.round(selectedPart.frame.position.x)} / Y{" "}
+              {Math.round(selectedPart.frame.position.y)}
+            </text>
+          </g>
+        ) : null}
       </svg>
 
       <div className="viewport-caption">
-        <span>{document.metadata.name}</span>
-        <span>{formatNumber(frame.time)} s</span>
-        <span>{frame.diagnostics.length} diagnostics</span>
+        <span>
+          Sheet title <strong>{document.metadata.name}</strong>
+        </span>
+        <span>
+          Timebase <strong>{formatNumber(frame.time)} s</strong>
+        </span>
+        <span>
+          Motion state <strong>{isPaused ? "Paused for edits" : "Running"}</strong>
+        </span>
+        <span>
+          Diagnostics <strong>{frame.diagnostics.length}</strong>
+        </span>
       </div>
     </div>
   );
