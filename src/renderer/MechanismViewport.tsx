@@ -1,0 +1,470 @@
+import { useMemo, useRef, useState } from "react";
+import { angleOf, formatNumber, normalize, radiansToDegrees, scale, sub } from "../domain/geometry";
+import {
+  buildInvoluteGearPath,
+  computeVisualGearPhases,
+  deriveGearGeometry,
+} from "../domain/gears";
+import type { MechanismDocument, MechanismPart, PartId, SimulationFrame } from "../domain/mechanism";
+
+interface MechanismViewportProps {
+  document: MechanismDocument;
+  frame: SimulationFrame;
+  selectedPartId: PartId | null;
+  isPaused: boolean;
+  onSelectPart: (partId: PartId | null) => void;
+  onMovePart: (partId: PartId, x: number, y: number) => void;
+}
+
+interface GearShapeProps {
+  part: Extract<MechanismPart, { type: "gear" }>;
+  frame: SimulationFrame;
+  selected: boolean;
+  visualPhase: number;
+}
+
+interface DragState {
+  partId: PartId;
+  startPointer: { x: number; y: number };
+  startPosition: { x: number; y: number };
+}
+
+const canDragPart = (part: MechanismPart): boolean => part.type !== "rod";
+
+const partStroke = (part: MechanismPart): string => part.style?.stroke ?? "#28495e";
+const selectedStroke = "#b54d34";
+const constructionStroke = "#90a8b7";
+const centerlineStroke = "#6f8b9e";
+
+const GearShape = ({
+  part,
+  frame,
+  selected,
+  visualPhase,
+}: GearShapeProps) => {
+  const pose = frame.poses[part.id];
+  const geometry = deriveGearGeometry(part.params);
+  const gearPath = buildInvoluteGearPath(geometry);
+
+  return (
+    <g
+      transform={`translate(${pose.position.x} ${pose.position.y}) rotate(${radiansToDegrees(
+        pose.rotation + visualPhase,
+      )})`}
+    >
+      <path
+        d={gearPath}
+        fill="url(#solidHatch)"
+        stroke={selected ? selectedStroke : partStroke(part)}
+        strokeWidth={selected ? 3 : 2.2}
+      />
+      <circle r={geometry.pitchRadius} fill="none" stroke={centerlineStroke} strokeWidth={1} strokeDasharray="8 6" />
+      <circle r={geometry.baseRadius} fill="none" stroke={constructionStroke} strokeWidth={0.9} strokeDasharray="5 5" opacity={0.7} />
+      <circle r={geometry.boreRadius} fill="#fcfbf5" stroke={partStroke(part)} strokeWidth={1.8} />
+      <line
+        x1={-geometry.outerRadius - 10}
+        y1={0}
+        x2={geometry.outerRadius + 10}
+        y2={0}
+        stroke={centerlineStroke}
+        strokeWidth={1}
+        strokeDasharray="8 6"
+        opacity={0.75}
+      />
+      <line
+        x1={0}
+        y1={-geometry.outerRadius - 10}
+        x2={0}
+        y2={geometry.outerRadius + 10}
+        stroke={centerlineStroke}
+        strokeWidth={1}
+        strokeDasharray="8 6"
+        opacity={0.75}
+      />
+    </g>
+  );
+};
+
+const RackShape = ({
+  part,
+  frame,
+  selected,
+}: {
+  part: Extract<MechanismPart, { type: "rack" }>;
+  frame: SimulationFrame;
+  selected: boolean;
+}) => {
+  const pose = frame.poses[part.id];
+  const halfLength = part.params.length / 2;
+  const halfHeight = part.params.height / 2;
+  const teeth = Math.max(6, Math.floor(part.params.length / part.params.toothPitch));
+  const step = part.params.length / teeth;
+  const axisAngle = radiansToDegrees(angleOf(normalize(part.params.axis)));
+
+  return (
+    <g transform={`translate(${pose.position.x} ${pose.position.y}) rotate(${axisAngle})`}>
+      <rect
+        x={-halfLength}
+        y={-halfHeight}
+        width={part.params.length}
+        height={part.params.height}
+        rx={8}
+        fill="url(#solidHatch)"
+        stroke={selected ? selectedStroke : partStroke(part)}
+        strokeWidth={selected ? 3 : 2.2}
+      />
+      {Array.from({ length: teeth + 1 }, (_, index) => -halfLength + index * step).map((x) => (
+        <line
+          key={x}
+          x1={x}
+          y1={-halfHeight}
+          x2={x + step * 0.5}
+          y2={-halfHeight - 8}
+          stroke={partStroke(part)}
+          strokeWidth={1.1}
+          opacity={0.9}
+        />
+      ))}
+      <line
+        x1={-halfLength}
+        y1={0}
+        x2={halfLength}
+        y2={0}
+        stroke={centerlineStroke}
+        strokeDasharray="8 6"
+        strokeWidth={1}
+      />
+    </g>
+  );
+};
+
+const CrankShape = ({
+  part,
+  frame,
+  selected,
+}: {
+  part: Extract<MechanismPart, { type: "crank" }>;
+  frame: SimulationFrame;
+  selected: boolean;
+}) => {
+  const pose = frame.poses[part.id];
+  const pivot = pose.anchors.pivot;
+  const pin = pose.anchors.pin;
+
+  return (
+    <g>
+      <circle
+        cx={pivot.x}
+        cy={pivot.y}
+        r={11}
+        fill="#fcfbf5"
+        stroke={selected ? selectedStroke : partStroke(part)}
+        strokeWidth={selected ? 3 : 2.2}
+      />
+      <line
+        x1={pivot.x}
+        y1={pivot.y}
+        x2={pin.x}
+        y2={pin.y}
+        stroke={partStroke(part)}
+        strokeWidth={9}
+        strokeLinecap="round"
+      />
+      <circle cx={pin.x} cy={pin.y} r={10} fill="#fcfbf5" stroke={partStroke(part)} strokeWidth={2} />
+      <line
+        x1={pivot.x - 16}
+        y1={pivot.y}
+        x2={pin.x + 16}
+        y2={pin.y}
+        stroke={centerlineStroke}
+        strokeDasharray="8 6"
+        strokeWidth={1}
+      />
+    </g>
+  );
+};
+
+const SliderShape = ({
+  part,
+  frame,
+  selected,
+}: {
+  part: Extract<MechanismPart, { type: "slider" }>;
+  frame: SimulationFrame;
+  selected: boolean;
+}) => {
+  const pose = frame.poses[part.id];
+  const origin = part.frame.position;
+  const axis = normalize(part.params.axis);
+  const axisAngle = radiansToDegrees(angleOf(axis));
+  const start = sub(origin, scale(axis, part.params.travelMin));
+  const end = sub(origin, scale(axis, -part.params.travelMax));
+
+  return (
+    <g>
+      <line
+        x1={start.x}
+        y1={start.y}
+        x2={end.x}
+        y2={end.y}
+        stroke={constructionStroke}
+        strokeWidth={4}
+        strokeLinecap="round"
+        opacity={0.8}
+      />
+      <g transform={`translate(${pose.position.x} ${pose.position.y}) rotate(${axisAngle})`}>
+        <rect
+          x={-part.params.width / 2}
+          y={-part.params.height / 2}
+          width={part.params.width}
+          height={part.params.height}
+          rx={12}
+          fill="url(#solidHatch)"
+          stroke={selected ? selectedStroke : partStroke(part)}
+          strokeWidth={selected ? 3 : 2.2}
+        />
+      </g>
+    </g>
+  );
+};
+
+const RodShape = ({
+  part,
+  frame,
+  selected,
+}: {
+  part: Extract<MechanismPart, { type: "rod" }>;
+  frame: SimulationFrame;
+  selected: boolean;
+}) => {
+  const pose = frame.poses[part.id];
+  const a = pose.anchors.a;
+  const b = pose.anchors.b;
+
+  return (
+    <g>
+      <line
+        x1={a.x}
+        y1={a.y}
+        x2={b.x}
+        y2={b.y}
+        stroke={selected ? selectedStroke : partStroke(part)}
+        strokeWidth={part.params.thickness}
+        strokeLinecap="round"
+      />
+      <line
+        x1={a.x}
+        y1={a.y}
+        x2={b.x}
+        y2={b.y}
+        stroke="#fcfbf5"
+        strokeWidth={Math.max(2, part.params.thickness - 6)}
+        strokeLinecap="round"
+      />
+      <line
+        x1={a.x}
+        y1={a.y}
+        x2={b.x}
+        y2={b.y}
+        stroke={centerlineStroke}
+        strokeDasharray="8 6"
+        strokeWidth={1}
+      />
+      <circle cx={a.x} cy={a.y} r={8} fill="#fcfbf5" stroke={partStroke(part)} strokeWidth={2} />
+      <circle cx={b.x} cy={b.y} r={8} fill="#fcfbf5" stroke={partStroke(part)} strokeWidth={2} />
+    </g>
+  );
+};
+
+const PivotShape = ({
+  part,
+  frame,
+  selected,
+}: {
+  part: Extract<MechanismPart, { type: "pivot" }>;
+  frame: SimulationFrame;
+  selected: boolean;
+}) => {
+  const pose = frame.poses[part.id];
+
+  return (
+    <g transform={`translate(${pose.position.x} ${pose.position.y})`}>
+      <circle
+        r={part.params.displayRadius}
+        fill="url(#solidHatch)"
+        stroke={selected ? selectedStroke : partStroke(part)}
+        strokeWidth={selected ? 3 : 2.2}
+      />
+      <path
+        d={`M ${-part.params.displayRadius - 8} ${part.params.displayRadius + 12} L 0 ${part.params.displayRadius - 2} L ${part.params.displayRadius + 8} ${part.params.displayRadius + 12}`}
+        stroke={partStroke(part)}
+        strokeWidth={2}
+        fill="none"
+        opacity={0.8}
+      />
+    </g>
+  );
+};
+
+export const MechanismViewport = ({
+  document,
+  frame,
+  selectedPartId,
+  isPaused,
+  onSelectPart,
+  onMovePart,
+}: MechanismViewportProps) => {
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const [dragState, setDragState] = useState<DragState | null>(null);
+  const gearPhases = useMemo(() => computeVisualGearPhases(document), [document]);
+
+  const gridLines = useMemo(() => {
+    const vertical = Array.from(
+      { length: Math.ceil(document.view.width / document.view.grid) + 1 },
+      (_, index) => index * document.view.grid,
+    );
+    const horizontal = Array.from(
+      { length: Math.ceil(document.view.height / document.view.grid) + 1 },
+      (_, index) => index * document.view.grid,
+    );
+
+    return { vertical, horizontal };
+  }, [document.view.grid, document.view.height, document.view.width]);
+
+  const eventToPoint = (event: { clientX: number; clientY: number }) => {
+    const bounds = svgRef.current?.getBoundingClientRect();
+
+    if (!bounds) {
+      return { x: 0, y: 0 };
+    }
+
+    return {
+      x: ((event.clientX - bounds.left) / bounds.width) * document.view.width,
+      y: ((event.clientY - bounds.top) / bounds.height) * document.view.height,
+    };
+  };
+
+  const beginDrag = (
+    event: React.PointerEvent<SVGGElement>,
+    part: MechanismPart,
+  ) => {
+    onSelectPart(part.id);
+
+    if (!isPaused || !canDragPart(part)) {
+      return;
+    }
+
+    const pointer = eventToPoint(event);
+
+    setDragState({
+      partId: part.id,
+      startPointer: pointer,
+      startPosition: part.frame.position,
+    });
+  };
+
+  const renderPart = (part: MechanismPart) => {
+    const selected = part.id === selectedPartId;
+
+    switch (part.type) {
+      case "gear":
+        return (
+          <GearShape
+            part={part}
+            frame={frame}
+            selected={selected}
+            visualPhase={gearPhases[part.id] ?? 0}
+          />
+        );
+      case "rack":
+        return <RackShape part={part} frame={frame} selected={selected} />;
+      case "crank":
+        return <CrankShape part={part} frame={frame} selected={selected} />;
+      case "slider":
+        return <SliderShape part={part} frame={frame} selected={selected} />;
+      case "rod":
+        return <RodShape part={part} frame={frame} selected={selected} />;
+      case "pivot":
+        return <PivotShape part={part} frame={frame} selected={selected} />;
+    }
+  };
+
+  return (
+    <div className="viewport-shell">
+      <svg
+        ref={svgRef}
+        className="viewport"
+        viewBox={`0 0 ${document.view.width} ${document.view.height}`}
+        onPointerMove={(event) => {
+          if (!dragState) {
+            return;
+          }
+
+          const pointer = eventToPoint(event);
+          const delta = sub(pointer, dragState.startPointer);
+          onMovePart(
+            dragState.partId,
+            dragState.startPosition.x + delta.x,
+            dragState.startPosition.y + delta.y,
+          );
+        }}
+        onPointerUp={() => setDragState(null)}
+        onPointerLeave={() => setDragState(null)}
+        onPointerDown={() => onSelectPart(null)}
+      >
+        <rect x={0} y={0} width={document.view.width} height={document.view.height} fill="url(#paperFill)" />
+        <defs>
+          <linearGradient id="paperFill" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#fcfbf5" />
+            <stop offset="100%" stopColor="#f0eee4" />
+          </linearGradient>
+          <pattern id="solidHatch" patternUnits="userSpaceOnUse" width="10" height="10" patternTransform="rotate(45)">
+            <rect width="10" height="10" fill="#fcfbf5" />
+            <line x1="0" y1="0" x2="0" y2="10" stroke="#cdd6dc" strokeWidth="2" />
+          </pattern>
+        </defs>
+        {gridLines.vertical.map((x) => (
+          <line
+            key={`v-${x}`}
+            x1={x}
+            y1={0}
+            x2={x}
+            y2={document.view.height}
+            stroke="#2f556d"
+            strokeOpacity={x % (document.view.grid * 5) === 0 ? 0.18 : 0.08}
+            strokeWidth={1}
+          />
+        ))}
+        {gridLines.horizontal.map((y) => (
+          <line
+            key={`h-${y}`}
+            x1={0}
+            y1={y}
+            x2={document.view.width}
+            y2={y}
+            stroke="#2f556d"
+            strokeOpacity={y % (document.view.grid * 5) === 0 ? 0.18 : 0.08}
+            strokeWidth={1}
+          />
+        ))}
+        {document.parts.map((part) => (
+          <g
+            key={part.id}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              beginDrag(event, part);
+            }}
+          >
+            {renderPart(part)}
+          </g>
+        ))}
+      </svg>
+
+      <div className="viewport-caption">
+        <span>{document.metadata.name}</span>
+        <span>{formatNumber(frame.time)} s</span>
+        <span>{frame.diagnostics.length} diagnostics</span>
+      </div>
+    </div>
+  );
+};
