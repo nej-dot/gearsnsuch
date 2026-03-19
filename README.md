@@ -190,6 +190,22 @@ bun run dev
 
 If `bun` is not installed yet, install it first and then run the commands above.
 
+## GitHub Pages deployment
+
+This repo is configured to deploy to GitHub Pages from GitHub Actions.
+
+- Push to `main` to trigger the deployment workflow.
+- The workflow builds with Bun and publishes the `dist/` output.
+- It sets `VITE_BASE_PATH` automatically to `/<repo-name>/`, which is the correct path for a project site such as `https://nej-dot.github.io/gearsnsuch/`.
+
+To test the Pages build locally:
+
+```bash
+source ~/.nvm/nvm.sh
+nvm use
+VITE_BASE_PATH=/gearsnsuch/ bun run build
+```
+
 ## Suggested next milestones
 
 1. Add a real editor tool system.
@@ -198,4 +214,3 @@ If `bun` is not installed yet, install it first and then run the commands above.
 4. Add undo/redo command history.
 5. Add compound gears and shared shafts.
 6. Add a physics adapter layer for hybrid experiments.
-
